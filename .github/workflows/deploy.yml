@@ -1,8 +1,8 @@
-name: Build and Deploy v86
+name: Build and Deploy v86 to GitHub Pages
 
 on:
   push:
-    branches: [ master, main ]
+    branches: ["master"]
   workflow_dispatch:
 
 permissions:
@@ -10,28 +10,45 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y default-jre-headless wget rustc cargo clang llvm
+          sudo apt-get install -y clang lld default-jre
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Rust WASM target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Build v86
-        run: make build/v86_all.js build/v86.wasm
+        run: make all
+
+      # もし index.html が build/ ではなくルート直下の v86_all.js を探す設定になっている場合は
+      # 以下の2行のコメントアウト（#）を外してください
+      # - name: Copy build files to root
+      #   run: cp build/v86_all.js build/v86.wasm .
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: "."
 
       - name: Deploy to GitHub Pages
         id: deployment
